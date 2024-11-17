@@ -8,7 +8,8 @@ import cv2
 app = Flask(__name__)
 
 # Enable CORS to allow frontend requests from http://localhost:3000
-CORS(app, resources={r"/*": {"origins": "https://osm-frontend-deploy.vercel.app"}})
+CORS(app, resources={r"/*": {"origins": "https://ocdetect.vercel.app"}})
+
 @app.route('/predict', methods=['POST'])
 def predict():
     """
