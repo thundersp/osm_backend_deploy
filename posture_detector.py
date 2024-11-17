@@ -3,11 +3,14 @@ import mediapipe as mp
 import base64
 import numpy as np
 import time
-from playsound import playsound
-import os
 from collections import deque
 from plyer import notification
 import threading
+import platform
+import pygame.mixer
+
+# Initialize pygame mixer for sound
+pygame.mixer.init()
 
 last_sound_time = 0
 sound_interval = 40
@@ -34,6 +37,11 @@ last_alert_time = time.time()
 alert_cooldown = 10
 
 sound_file = "music.mp3"
+try:
+    alert_sound = pygame.mixer.Sound(sound_file)
+except:
+    print(f"Could not load sound file: {sound_file}")
+    alert_sound = None
 
 brightness_threshold = 300
 low_light_notification_sent = False
@@ -42,12 +50,10 @@ notification_interval = 300
 
 calibration_frames_target = 70
 
-def play_sound_in_thread(sound_file):
+def play_sound_in_thread():
     try:
-        if os.path.exists(sound_file):
-            threading.Thread(target=playsound, args=(sound_file,), daemon=True).start()
-        else:
-            print(f"Sound file {sound_file} not found.")
+        if alert_sound:
+            threading.Thread(target=alert_sound.play, daemon=True).start()
     except Exception as e:
         print(f"Error playing sound: {e}")
 
@@ -111,9 +117,6 @@ def analyze_posture(frame, landmarks):
         print(f"Calibration complete. Shoulder threshold: {shoulder_threshold:.1f}, Neck threshold: {neck_threshold:.1f}")
 
     posture_smooth_window.append((shoulder_angle, neck_angle))
-    if len(posture_smooth_window) > 10:
-        posture_smooth_window.pop(0)
-
     smooth_shoulder_angle = np.mean([angle[0] for angle in posture_smooth_window])
     smooth_neck_angle = np.mean([angle[1] for angle in posture_smooth_window])
 
@@ -124,7 +127,7 @@ def analyze_posture(frame, landmarks):
             print("Poor posture detected! Please sit up straight.")
             if current_time - last_sound_time >= sound_interval:
                 last_sound_time = current_time
-                play_sound_in_thread(sound_file)
+                play_sound_in_thread()
         return "Poor Posture", (0, 0, 255)
     else:
         return "Good Posture", (0, 255, 0)
@@ -148,8 +151,6 @@ def analyze_focus(frame):
             avg_eye_distance = (left_eye_distance + right_eye_distance) / 2
 
             blink_smooth_window.append(avg_eye_distance)
-            if len(blink_smooth_window) > 5:
-                blink_smooth_window.pop(0)
             smooth_eye_distance = np.mean(blink_smooth_window)
 
             if smooth_eye_distance < eye_open_threshold:
